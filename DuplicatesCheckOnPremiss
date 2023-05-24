@@ -1,0 +1,80 @@
+# Load Windows Forms Assembly
+Add-Type -AssemblyName System.Windows.Forms
+
+# Inform the user about the next step
+Write-Host "Please select the folder where you want to search for duplicate files."
+
+# Create a new FolderBrowserDialog
+$folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+
+# Show the FolderBrowserDialog and get the selected path
+$dialogResult = $folderBrowser.ShowDialog()
+if ($dialogResult -eq 'OK') {
+    $path = $folderBrowser.SelectedPath
+} else {
+    Write-Host "No folder selected, exiting script."
+    return
+}
+
+# Initialize an empty array
+$output = @()
+$items = @()
+
+# Initialize path error count
+$pathErrorCount = 0
+
+# Get all items in the path
+$directories = Get-ChildItem -Path $path -Recurse -Directory -ErrorAction SilentlyContinue
+foreach ($directory in $directories) {
+    try {
+        $items += Get-ChildItem -Path $directory.FullName -File -ErrorAction Stop
+    } catch {
+        Write-Host "Error encountered while accessing path: $_"
+        $pathErrorCount++
+        if ($_.Exception.Message -match "The specified path, file name, or both are too long") {
+            Write-Host "Skipping due to path length: $_.Path"
+        }
+    }
+}
+
+# Group items by name and size
+$groupedItems = $items | Group-Object -Property Name, Length
+
+# Ask for the output file name
+$outputFileName = Read-Host -Prompt "Enter the output file name (without .csv extension)"
+$outputFileName += ".csv"
+
+# Create the CSV header
+"Name,Notes,Delete?,Folder or File,Location,Size" | Out-File -FilePath $outputFileName
+
+# Loop through each group of items
+foreach ($group in $groupedItems) {
+    # If there is more than one file with the same name and size
+    if ($group.Count -gt 1) {
+        # Loop through each item
+        foreach ($item in $group.Group) {
+            # Calculate size
+            $size = $item.Length
+
+            # Add an object with the details to the output array
+            $output += New-Object PSObject -Property @{
+                "Name" = $item.Name
+                "Notes" = "Duplicate file"
+                "Delete?" = $false
+                "Folder or File" = "File"
+                "Location" = $item.PSParentPath.Replace("Microsoft.PowerShell.Core\FileSystem::", "")
+                "Size" = $size
+            }
+        }
+        
+        # Write the details of the duplicate files to the CSV and add an empty line
+        $output | ConvertTo-Csv -NoTypeInformation | Select-Object -Skip 1 | Add-Content -Path $outputFileName
+        Add-Content -Path $outputFileName -Value ""
+        
+        # Clear the output array for the next group
+        $output = @()
+    }
+}
+
+Write-Host "Script completed. Output written to $outputFileName"
+Write-Host "Path errors encountered: $pathErrorCount"
