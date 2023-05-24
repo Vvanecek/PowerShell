@@ -45,7 +45,7 @@ $outputFileName = Read-Host -Prompt "Enter the output file name (without .csv ex
 $outputFileName += ".csv"
 
 # Create the CSV header
-"Name,Notes,Delete?,Folder or File,Location,Size" | Out-File -FilePath $outputFileName
+"Name,Size,Location,Notes,Folder or File,Delete?" | Out-File -FilePath $outputFileName
 
 # Loop through each group of items
 foreach ($group in $groupedItems) {
@@ -59,11 +59,11 @@ foreach ($group in $groupedItems) {
             # Add an object with the details to the output array
             $output += New-Object PSObject -Property @{
                 "Name" = $item.Name
-                "Notes" = "Duplicate file"
-                "Delete?" = $false
-                "Folder or File" = "File"
-                "Location" = $item.PSParentPath.Replace("Microsoft.PowerShell.Core\FileSystem::", "")
                 "Size" = $size
+                "Location" = $item.PSParentPath.Replace("Microsoft.PowerShell.Core\FileSystem::", "")
+                "Notes" = "Duplicate file"
+                "Folder or File" = "File"
+                "Delete?" = $false
             }
         }
         
